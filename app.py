@@ -2,9 +2,16 @@ from flask import Flask, request, make_response
 from models import db, Affirmations, User
 from flask_migrate import Migrate
 from flask_cors import CORS
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///app.db'
+
+# Use PostgreSQL database in production and SQLite in development
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///app.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.json.compact = False
 
@@ -26,11 +33,11 @@ def affirmations():
         return make_response(affirmations, 200)
 
     elif request.method == 'POST':
-        data = request.get_json()  # Use get_json to fetch data from request body
+        data = request.get_json()
         new_affirmation = Affirmations(
             hashtag=data.get('hashtag'),
             affirmation=data.get('affirmation'),
-            date=data.get('date')
+            date=data.get('date')  # Make sure this matches the date format you're using
         )
         db.session.add(new_affirmation)
         db.session.commit()
@@ -56,12 +63,12 @@ def affirmations_by_id(id):
             setattr(affirmation, attr, request.form.get(attr))
         db.session.commit()
         return make_response(affirmation.to_dict(), 200)
-    
-@app.route('/users', methods=[ 'POST'])
+
+@app.route('/users', methods=['POST'])
 def users():
     if request.method == 'POST':
-        data=request.get_json()
-        new_user=User(
+        data = request.get_json()
+        new_user = User(
             user_name=data.get('user_name'),
             age=data.get('age')
         )
@@ -69,16 +76,15 @@ def users():
         db.session.add(new_user)
         db.session.commit()
         return make_response(new_user.to_dict(), 201)
-    
-    
-    
+
 @app.route('/users_by_id/<int:id>', methods=['GET'])
 def users_by_id(id):
     if request.method == 'GET':
-         user=[user.to_dict() for user in User.query.filter_by(User.id == id).first()]
-         response=make_response(user, 200)
+         user = User.query.filter_by(id=id).first()
+         if not user:
+            return make_response({"error": "User not found"}, 404)
+         response = make_response(user.to_dict(), 200)
          return response
-              
 
 if __name__ == '__main__':
     app.run(port=5555, debug=True)
